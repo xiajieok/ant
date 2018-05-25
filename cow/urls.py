@@ -24,5 +24,7 @@ urlpatterns = [
     url(r'^api/', include('cow.rest_urls') ),
     url(r'^category/(.+)?/$', views.asset_category, name="category"),
     url(r'^list/(\d+)/$', views.asset_detail, name="detail"),
-    # url(r'^assets_approval/$', views.assets_approval, name="approval"),
+    url(r'^assets_approval/$', views.assets_approval, name="approval"),
+    url(r'^new_asset/$', views.asset_with_no_asset_id, name="new_asset"),
+    url(r'^asset_report/$', views.asset_report, name="asset_report"),
 ]

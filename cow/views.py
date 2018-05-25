@@ -46,10 +46,9 @@ def get_dashboard_data(request):
 def asset_list(request):
     if request.method == 'GET':
         assets = asset_handle.fetch_asset_list()
-        print(assets)
         obj = models.Assets.objects.all()
         data = pages(request, obj, 10)
-        print(obj)
+        print('new', obj)
         return render(request, 'assets/asset.html', {'assets': assets, 'posts': data})
 
 
@@ -69,3 +68,124 @@ def asset_category(request, type):
     print(obj)
     return render(request, 'assets/asset.html', {'assets': assets, 'posts': data})
     # return HttpResponse('hahaha')
+
+
+def assets_approval(request):
+    if request.method == 'GET':
+        type = 'approved'
+        assets = asset_handle.fetch_asset_list(type)
+        obj = models.Assets.objects.all().filter(approved=False)
+        data = pages(request, obj, 10)
+        return render(request, 'assets/assets_approval.html', {'asset_data': assets, 'posts': data})
+    else:
+        id_list = request.POST.getlist('ids[]')
+        print('id_list', id_list)
+        obj_list = models.Assets.objects.filter(id__in=id_list).update(approved=True)
+        print(obj_list)
+        return HttpResponse('ok')
+
+
+def create_assets(args):
+    data = args.POST
+
+    asset_info = {
+        'sn': str(data.get('assets_sn')),
+        'memo': json.dumps(data),
+        'name': data.get('hostname'),
+        'assets_type': data.get('assets_type'),
+
+    }
+    print('创建数据',asset_info)
+    asset_already_in_approval_zone = models.Assets.objects.get_or_create(**asset_info)
+
+
+def update_server(args):
+    data = args.POST
+
+    server_info = {
+        'assets_id': models.Assets.objects.get(sn=str(data.get('assets_sn'))).id,
+        'ip': '10.10.30.222',
+        'cpu': data.get('cpu_model'),
+        'cpu_number': data.get('cpu_count'),
+        'cpu_core': data.get('cpu_core_count'),
+        'disk_total': '1024',
+        'ram_capacity': data.get('ram_size'),
+        'raid': '5',
+        'os_type': data.get('os_type'),
+        'os_distribution': data.get('os_distribution'),
+        'os_release': data.get('os_release'),
+        'model': data.get('model'),
+        'manufactory_id': models.Manufactory.objects.get(manufactory=data.get('manufactory')).id,
+
+    }
+    print('更新数据',server_info)
+    asset_server = models.Server.objects.update_or_create(
+        assets_id=models.Assets.objects.get(sn=str(data.get('assets_sn'))).id, defaults=server_info)
+
+
+def asset_report(request):
+    '''
+    判断是资产入库还是更新资产
+    :param request:
+    :return:
+    '''
+    if request.method == 'POST':
+        data = request.POST
+        print(data)
+        try:
+            print('检查是否存在')
+            sn = models.Assets.objects.get(sn=str(data.get('assets_sn')))
+        except:
+            print('新增数据')
+            create_assets(request)
+            update_server(request)
+        else:
+            print('更新数据')
+            update_server(request)
+
+        return HttpResponse('--数据汇报完毕--')
+
+    return HttpResponse('--test--')
+
+
+def asset_with_no_asset_id(request):
+    if request.method == 'GET':
+        print('开始获取ID')
+        res = models.Assets.objects.order_by('-id').values('id')[0:1]
+        next_id = int(list(res)[0]['id']) + 1
+        print('next ID', next_id)
+        return HttpResponse(next_id)
+    else:
+        data = request.POST
+        print(data)
+        assets_sn = str(data.get('assets_sn'))
+        assets_info = {
+            'sn': assets_sn,
+            'memo': json.dumps(data),
+            'name': data.get('hostname'),
+            'manufactory_id': '1',
+            'model': 'R720',
+            'asset_type': data.get('assets_type'),
+
+        }
+        if not models.Assets.objects.filter(sn=assets_sn).values('id'):
+            asset_already_in_approval_zone = models.Assets.objects.get_or_create(**assets_sn)
+        else:
+            new_id = models.Assets.objects.filter(sn=assets_sn).values('id')
+            print(new_id)
+            for i in new_id:
+                for k, v in i.items():
+                    obj = {
+                        'id': v,
+                        'asset_id': v,
+                        # 'sub_assset_type': '0',
+                        'model': 'R720',
+                        'ram_capacity': data.get('ram_size'),
+                        'os_type': data.get('system_type'),
+                        'os_distribution': str(data.get('os_distribution')),
+                        'os_release': str(data.get('os_release')),
+                    }
+                    asset_server_create = models.Server.objects.update_or_create(**obj)
+
+                    print(asset_server_create)
+    return HttpResponse('200')

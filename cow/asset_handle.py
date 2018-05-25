@@ -8,8 +8,11 @@ from cow import models
 def fetch_asset_list(args):
     if args == 'all':
         objs = models.Assets.objects.all()
+    elif args == 'approved':
+        objs = models.Assets.objects.filter(approved=False)
     else:
-        objs = models.Assets.objects.filter(assets_type=args)
+        objs = models.Assets.objects.filter(assets_type=args).filter(approved=True)
+
     res_list = []
     for obj in objs:
         if obj.assets_type == 'server':

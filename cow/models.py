@@ -19,7 +19,7 @@ class Assets(models.Model):
     buy_time = models.DateField(blank=True, null=True, verbose_name='购买时间')
     expire_date = models.DateField(u'过保修期', null=True, blank=True)
     management_ip = models.GenericIPAddressField(u'管理IP', blank=True, null=True)
-    model = models.CharField(max_length=100, blank=True, null=True, verbose_name='资产型号')
+    # model = models.CharField(max_length=100, blank=True, null=True, verbose_name='资产型号')
     # put_zone = models.SmallIntegerField(blank=True, null=True, verbose_name='放置区域')
     business_unit = models.ForeignKey('BusinessUnit', verbose_name=u'所属业务线', null=True, blank=True,
                                       on_delete=models.SET_NULL)

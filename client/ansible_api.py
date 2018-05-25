@@ -23,9 +23,6 @@ from tempfile import NamedTemporaryFile
 from ansible.plugins.callback import CallbackBase
 import os
 
-
-
-
 try:
     from __main__ import display
 except ImportError:
@@ -58,12 +55,11 @@ class ResultCallback(CallbackBase):
         self.host_failed[result._host.get_name()] = result
 
 
-
-
 class MyRunner(object):
     """
     This is a General object for parallel execute modules.
     """
+
     def __init__(self, resource, *args, **kwargs):
         self.resource = resource
         self.inventory = None
@@ -81,23 +77,24 @@ class MyRunner(object):
         """
 
         Options = namedtuple('Options',
-                             ['connection', 'module_path', 'forks', 'become', 'become_method', 'become_user', 'check',
+                             ['connection', 'module_path','private_key_file', 'forks', 'become', 'become_method','remote_user', 'become_user', 'check',
                               'diff'])
-
-
 
         self.loader = DataLoader()
 
-        self.options = Options(connection='ssh', module_path='/path/to/mymodules', forks=100, become=None,
-                               become_method=None, become_user=None, check=False,
+        self.options = Options(connection='smart',
+                               module_path='/Library/Frameworks/Python.framework/Versions/3.5/lib/python3.5/site-packages/ansible/modules',
+                               forks=100, become=None,
+                               # private_key_file=None,
+                               private_key_file='/Users/jack/.ssh/id_rsa',
+                               become_method=None, become_user=None, check=False,remote_user='root',
                                diff=False)
 
         self.passwords = dict(vault_pass='secret')
         self.inventory = InventoryManager(loader=self.loader, sources=self.resource)
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
 
-
-    def run(self, host_list, module_name, module_args,):
+    def run(self, host_list, module_name, module_args, ):
         """
         run module from andible ad-hoc.
         module_name: ansible module_name
@@ -123,11 +120,12 @@ class MyRunner(object):
                     options=self.options,
                     passwords=self.passwords,
                     stdout_callback='default',
+
             )
             tqm._stdout_callback = self.callback
             result = tqm.run(play)
-        #print result
-        #print self.callback
+        # print result
+        # print self.callback
         finally:
             if tqm is not None:
                 tqm.cleanup()
@@ -166,7 +164,7 @@ class MyRunner(object):
     #         pass
 
     def get_result(self):
-        self.results_raw = {'success':{}, 'failed':{}, 'unreachable':{}}
+        self.results_raw = {'success': {}, 'failed': {}, 'unreachable': {}}
         for host, result in self.callback.host_ok.items():
             self.results_raw['success'][host] = result._result
 
@@ -174,13 +172,13 @@ class MyRunner(object):
             self.results_raw['failed'][host] = result._result
 
         for host, result in self.callback.host_unreachable.items():
-            self.results_raw['unreachable'][host]= result._result['msg']
+            self.results_raw['unreachable'][host] = result._result['msg']
 
-        #print "Ansible执行结果集:%s"%self.results_raw
+        # print "Ansible执行结果集:%s"%self.results_raw
         return self.results_raw
 
-class ResultsCollector(CallbackBase):
 
+class ResultsCollector(CallbackBase):
     def __init__(self, *args, **kwargs):
         super(ResultsCollector, self).__init__(*args, **kwargs)
         self.host_ok = {}
@@ -190,8 +188,8 @@ class ResultsCollector(CallbackBase):
     def v2_runner_on_unreachable(self, result):
         self.host_unreachable[result._host.get_name()] = result
 
-    def v2_runner_on_ok(self, result,  *args, **kwargs):
+    def v2_runner_on_ok(self, result, *args, **kwargs):
         self.host_ok[result._host.get_name()] = result
 
-    def v2_runner_on_failed(self, result,  *args, **kwargs):
+    def v2_runner_on_failed(self, result, *args, **kwargs):
         self.host_failed[result._host.get_name()] = result
