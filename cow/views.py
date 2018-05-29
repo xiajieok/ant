@@ -6,6 +6,7 @@ from cow.dashboard import AssetDashboard
 import json
 from cow import models
 from cow import asset_handle
+import os
 
 
 # Create your views here.
@@ -95,7 +96,7 @@ def create_assets(args):
         'assets_type': data.get('assets_type'),
 
     }
-    print('创建数据',asset_info)
+    print('创建数据', asset_info)
     asset_already_in_approval_zone = models.Assets.objects.get_or_create(**asset_info)
 
 
@@ -118,9 +119,9 @@ def update_server(args):
         'manufactory_id': models.Manufactory.objects.get(manufactory=data.get('manufactory')).id,
 
     }
-    print('更新数据',server_info)
+    print('更新数据', server_info)
     asset_server = models.Server.objects.update_or_create(
-        assets_id=models.Assets.objects.get(sn=str(data.get('assets_sn'))).id, defaults=server_info)
+            assets_id=models.Assets.objects.get(sn=str(data.get('assets_sn'))).id, defaults=server_info)
 
 
 def asset_report(request):
@@ -132,16 +133,20 @@ def asset_report(request):
     if request.method == 'POST':
         data = request.POST
         print(data)
-        try:
-            print('检查是否存在')
-            sn = models.Assets.objects.get(sn=str(data.get('assets_sn')))
-        except:
-            print('新增数据')
-            create_assets(request)
-            update_server(request)
-        else:
-            print('更新数据')
-            update_server(request)
+        # for k, v in data.items():
+        #     print(v)
+            # sn = v['assets_sn']
+            # print('sn')
+            # try:
+            #     print('检查是否存在')
+            #     sn = models.Assets.objects.get(sn=sn)
+            # except:
+            #     print('新增数据')
+            #     create_assets(request)
+            #     update_server(request)
+            # else:
+            #     print('更新数据')
+            #     update_server(request)
 
         return HttpResponse('--数据汇报完毕--')
 

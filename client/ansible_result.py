@@ -87,5 +87,5 @@ class SendInfo(object):
 if __name__ == '__main__':
     msg = Normal().info()
     # print(msg)
-    # res = SendInfo(data=msg).post_data()
+    res = SendInfo(data=msg).post_data()
     print(msg)
