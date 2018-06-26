@@ -112,8 +112,8 @@ class Manufactory(models.Model):
 class BusinessUnit(models.Model):
     """业务线"""
 
-    parent_unit = models.ForeignKey('self', related_name='parent_level', blank=True, null=True,
-                                    on_delete=models.SET_NULL)
+    # parent_unit = models.ForeignKey('self', related_name='parent_level', blank=True, null=True,
+    #                                 on_delete=models.SET_NULL)
     name = models.CharField(u'业务线', max_length=64, unique=True)
 
     # contact = models.ForeignKey('UserProfile',default=None)
@@ -152,7 +152,7 @@ class Contract(models.Model):
 class IDC(models.Model):
     """机房"""
 
-    name = models.CharField(u'机房名称', max_length=64, unique=True)
+    name = models.CharField(u'机房名称', max_length=64, unique=True,default='阿里云')
     memo = models.CharField(u'备注', max_length=128, blank=True, null=True)
 
     def __str__(self):

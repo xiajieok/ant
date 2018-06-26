@@ -1,14 +1,43 @@
 from django.shortcuts import render, HttpResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.exceptions import ObjectDoesNotExist
+from django.contrib.auth.models import User, Group
+from rest_framework import viewsets
+from cow.serializers import UserSerializer, GroupSerializer
+
 from django.contrib.auth import login, logout, authenticate
 from cow.dashboard import AssetDashboard
 import json
+from django.http import JsonResponse
 from cow import models
 from cow import asset_handle
 import os
 
+import datetime
 
+class CJsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # if isinstance(obj, datetime):
+        # return obj.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(obj, datetime.date):
+            return obj.strftime('%H:%M')
+        else:
+            return json.JSONEncoder.default(self, obj)
+
+class UserViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows users to be viewed or edited.
+    """
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = UserSerializer
+
+
+class GroupViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows groups to be viewed or edited.
+    """
+    queryset = Group.objects.all()
+    serializer_class = GroupSerializer
 # Create your views here.
 
 def pages(request, q_all, num):
@@ -53,13 +82,29 @@ def asset_list(request):
         return render(request, 'assets/asset.html', {'assets': assets, 'posts': data})
 
 
-def asset_detail(request, asset_id):
+def asset_detail(request,asset_id):
+    print(request.GET.get('type'))
     if request.method == 'GET':
-        try:
-            asset_obj = models.Assets.objects.get(id=asset_id)
-        except  ObjectDoesNotExist as e:
-            print(e)
-        return render(request, 'assets/asset_detail.html', {'asset_obj': asset_obj})
+        if request.GET.get('type') is None:
+            try:
+                asset_obj = models.Assets.objects.get(id=asset_id)
+            except  ObjectDoesNotExist as e:
+                print(e)
+            return render(request, 'assets/asset_detail.html', {'asset_obj': asset_obj})
+        else:
+            asset_obj = models.Assets.objects.filter(id=asset_id).values()[0]
+            server_obj = models.Server.objects.filter(assets_id=asset_id).values()[0]
+            data=dict(asset_obj, **server_obj)
+            if data['idc_id'] is None:
+                idc = '未分配'
+            else:
+                idc = models.IDC.objects.filter(id=data['idc_id']).values('name')[0]
+
+            print(idc)
+            data['idc_id'] = idc
+            print(data)
+            json_data = json.dumps(data,cls=CJsonEncoder)
+            return HttpResponse(json_data)
 
 
 def asset_category(request, type):
@@ -87,21 +132,23 @@ def assets_approval(request):
 
 
 def create_assets(args):
-    data = args.POST
+    data = json.loads(args.body.decode())
 
-    asset_info = {
-        'sn': str(data.get('assets_sn')),
-        'memo': json.dumps(data),
-        'name': data.get('hostname'),
-        'assets_type': data.get('assets_type'),
+    print(data)
+    for k, v in data.items():
+        asset_info = {
+            'sn': v['assets_sn'],
+            # 'memo': v['data'],
+            'name': v['hostname'],
+            'assets_type': v['assets_type'],
 
-    }
-    print('创建数据', asset_info)
-    asset_already_in_approval_zone = models.Assets.objects.get_or_create(**asset_info)
+        }
+        print('创建数据', asset_info)
+        asset_already_in_approval_zone = models.Assets.objects.get_or_create(**asset_info)
 
 
 def update_server(args):
-    data = args.POST
+    data = json.loads(args.decode())
 
     server_info = {
         'assets_id': models.Assets.objects.get(sn=str(data.get('assets_sn'))).id,
@@ -131,66 +178,42 @@ def asset_report(request):
     :return:
     '''
     if request.method == 'POST':
-        data = request.POST
+        data = json.loads((request.body).decode())
         print(data)
-        # for k, v in data.items():
-        #     print(v)
-            # sn = v['assets_sn']
-            # print('sn')
-            # try:
-            #     print('检查是否存在')
-            #     sn = models.Assets.objects.get(sn=sn)
-            # except:
-            #     print('新增数据')
-            #     create_assets(request)
-            #     update_server(request)
-            # else:
-            #     print('更新数据')
-            #     update_server(request)
 
+        for k, v in data.items():
+            print(k, v)
+
+            asset_info = {
+                'sn': v['assets_sn'],
+                # 'memo': v['data'],
+                'name': v['hostname'],
+                'assets_type': v['assets_type'],
+
+            }
+            sn = models.Assets.objects.update_or_create(sn=v['assets_sn'], defaults=asset_info)
+            server_info = {
+                'assets_id': models.Assets.objects.get(sn=v['assets_sn']).id,
+                'ip': v['ip'],
+                'cpu': v['cpu_model'][2],
+                'cpu_number': v['cpu_count'],
+                'cpu_core': v['cpu_core_count'],
+                'disk_total': v['disk_count'],
+                'ram_capacity': v['ram_size'],
+                'raid': '5',
+                'os_type': v['os_type'],
+                'os_distribution': v['os_distribution'],
+                'os_release': v['os_release'],
+                'model': v['model'],
+                'manufactory_id': models.Manufactory.objects.get(manufactory=v['manufactory']).id,
+
+            }
+            if v['assets_type'] == 'server':
+                print('更新数据', server_info)
+            asset_server = models.Server.objects.update_or_create(
+                    assets_id=models.Assets.objects.get(sn=v['assets_sn']).id, defaults=server_info)
+
+            #
         return HttpResponse('--数据汇报完毕--')
 
     return HttpResponse('--test--')
-
-
-def asset_with_no_asset_id(request):
-    if request.method == 'GET':
-        print('开始获取ID')
-        res = models.Assets.objects.order_by('-id').values('id')[0:1]
-        next_id = int(list(res)[0]['id']) + 1
-        print('next ID', next_id)
-        return HttpResponse(next_id)
-    else:
-        data = request.POST
-        print(data)
-        assets_sn = str(data.get('assets_sn'))
-        assets_info = {
-            'sn': assets_sn,
-            'memo': json.dumps(data),
-            'name': data.get('hostname'),
-            'manufactory_id': '1',
-            'model': 'R720',
-            'asset_type': data.get('assets_type'),
-
-        }
-        if not models.Assets.objects.filter(sn=assets_sn).values('id'):
-            asset_already_in_approval_zone = models.Assets.objects.get_or_create(**assets_sn)
-        else:
-            new_id = models.Assets.objects.filter(sn=assets_sn).values('id')
-            print(new_id)
-            for i in new_id:
-                for k, v in i.items():
-                    obj = {
-                        'id': v,
-                        'asset_id': v,
-                        # 'sub_assset_type': '0',
-                        'model': 'R720',
-                        'ram_capacity': data.get('ram_size'),
-                        'os_type': data.get('system_type'),
-                        'os_distribution': str(data.get('os_distribution')),
-                        'os_release': str(data.get('os_release')),
-                    }
-                    asset_server_create = models.Server.objects.update_or_create(**obj)
-
-                    print(asset_server_create)
-    return HttpResponse('200')

@@ -2,12 +2,13 @@
 __author__ = 'xxx'
 from django.conf.urls import url, include
 from rest_framework import routers
-# from cow import rest_views as views
+from cow import rest_views as views
 from cow import views as cow_views
 router = routers.DefaultRouter()
 # router.register(r'users', views.UserViewSet)
-# router.register(r'assets', views.AssetViewSet)
-# router.register(r'servers', views.ServerViewSet)
+router.register(r'assets', views.AssetViewSet)
+router.register(r'idcs', views.IDCViewSet)
+router.register(r'business', views.BusinessUnitSet)
 
 
 # from cow import rest_test
